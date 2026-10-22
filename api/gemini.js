@@ -141,14 +141,15 @@ module.exports = async (req, res) => {
     }
   } catch (err) {}
 
-  // Fallback candidate list if listModels was empty
+  // Priority list for selecting the best available model
   const candidatePriority = [
-    'gemma-4-26b-a4b-it',
-    'gemma-4-31b-it',
-    'gemini-2.5-flash-lite',
     'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-flash-latest',
     'gemini-1.5-flash-latest',
     'gemini-1.5-flash',
+    'gemma-4-26b-a4b-it',
+    'gemma-4-31b-it',
     'gemini-pro'
   ];
 

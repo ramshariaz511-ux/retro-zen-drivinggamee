@@ -199,10 +199,11 @@ async function discoverAndVerifyGeminiKey(key) {
 
   // Priority order for selecting the best model
   const priority = [
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
+    'gemini-flash-latest',
     'gemma-4-26b-a4b-it',
     'gemma-4-31b-it',
-    'gemini-2.5-flash-lite',
-    'gemini-2.5-flash',
     'gemini-1.5-flash-latest',
     'gemini-1.5-flash',
     'gemini-2.0-flash',
