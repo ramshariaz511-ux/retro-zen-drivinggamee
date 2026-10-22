@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Vintage, retro, pixelated first-person driving & walking game with Google Gemini AI mood guide",
   "scripts": {
-    "start": "node dev-server.js"
+    "local": "node scripts/server.js"
   },
   "keywords": [
     "retro-game",
