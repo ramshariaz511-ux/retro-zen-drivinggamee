@@ -712,4 +712,8 @@ function startServer(portToTry) {
   });
 }
 
-startServer(PORT);
+if (require.main === module) {
+  startServer(PORT);
+}
+
+module.exports = server;
