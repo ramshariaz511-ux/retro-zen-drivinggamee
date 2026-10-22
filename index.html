@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>retroZen driving | Vintage Retro Pixel Driving & AI Companion</title>
+  <link rel="stylesheet" href="css/retro.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚗</text></svg>">
+</head>
+<body>
+
+  <!-- ================= 1. PERSISTENT TOP BAR (ACTIVE AT ALL TIMES) ================= -->
+  <header id="top-bar">
+    <!-- Brand & Current Map/Speed -->
+    <div class="brand-section">
+      <div class="logo-badge">
+        <span class="status-dot"></span>
+        <span>retroZen</span>
+      </div>
+      <div class="current-map-badge" id="current-map-name">
+        🌆 Tokyo Expressway
+      </div>
+      <div class="speed-badge" id="speed-display">
+        0 MPH
+      </div>
+    </div>
+
+    <!-- Center: Timing & Walk/Skate Mode Selectors -->
+    <div class="center-controls">
+      <!-- Timing Selector (Sunrise, Afternoon, Sunset, Night) -->
+      <div class="pill-group" title="Time of Day">
+        <button class="time-btn" data-time="sunrise" id="time-sunrise" title="Sunrise">🌅 RISE</button>
+        <button class="time-btn" data-time="afternoon" id="time-afternoon" title="Afternoon">☀️ DAY</button>
+        <button class="time-btn active" data-time="sunset" id="time-sunset" title="Sunset">🌇 DUSK</button>
+        <button class="time-btn" data-time="night" id="time-night" title="Night">🌙 NIGHT</button>
+      </div>
+
+      <!-- Travel Mode Switcher: Active in ALL Maps! (Drive, Walk, Skate) -->
+      <div class="pill-group" id="travel-mode-group" title="Travel Mode">
+        <button class="mode-btn active" data-mode="car" id="mode-car" title="Drive Vintage Car">🚗 DRIVE</button>
+        <button class="mode-btn" data-mode="walk" id="mode-walk" title="First-Person Walk">🚶 WALK</button>
+        <button class="mode-btn" data-mode="skateboard" id="mode-skate" title="First-Person Skateboard">🛹 SKATE</button>
+      </div>
+    </div>
+
+    <!-- Right: Calming Sound Bar & Actions -->
+    <div class="right-controls">
+      <!-- Vinyl Sound Widget -->
+      <div class="sound-widget">
+        <button class="sound-toggle-btn" id="toggle-vinyl-btn" title="Toggle Analog Vinyl Crackle & Pops">
+          💽 VINYL
+        </button>
+        <input type="range" class="mini-slider" id="vinyl-volume" min="0" max="1" step="0.05" value="0.55" title="Vinyl Volume">
+      </div>
+
+      <!-- Rain Sound Widget -->
+      <div class="sound-widget">
+        <button class="sound-toggle-btn" id="toggle-rain-btn" title="Toggle Rain Sound & Windshield Droplets">
+          🌧️ RAIN
+        </button>
+        <input type="range" class="mini-slider" id="rain-volume" min="0" max="1" step="0.05" value="0.6" title="Rain Volume">
+      </div>
+
+      <!-- Lo-Fi Beats Synthesizer Widget -->
+      <div class="music-box">
+        <select class="track-select" id="music-track-select" title="Select Lo-Fi Beat Track">
+          <option value="1">1. Shibuya</option>
+          <option value="2">2. Green Hill</option>
+          <option value="3">3. London</option>
+          <option value="4">4. Alpine</option>
+          <option value="5">5. Times Sq</option>
+          <option value="6">6. Istiklal</option>
+        </select>
+        <button class="music-btn" id="toggle-music-btn" title="Play / Pause Lo-Fi Beat">PLAY</button>
+        <input type="range" class="mini-slider" id="music-volume" min="0" max="1" step="0.05" value="0.65" title="Music Volume">
+      </div>
+
+      <!-- Action: Open Map Selector -->
+      <button class="action-btn" id="open-maps-modal-btn" title="Change Map">
+        🗺️ MAPS
+      </button>
+
+      <!-- Action: Open Gemini AI Mood Navigator -->
+      <button class="action-btn ai-btn" id="open-ai-btn" title="Ask Gemini AI for Mood Suggestions">
+        🤖 AI
+      </button>
+
+      <!-- Action: CRT Scanlines & Sound Toggle -->
+      <button class="action-btn active" id="toggle-crt-btn" title="Toggle CRT Retro Scanlines & Flyback Sound">
+        📺 CRT
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= 2. 3D GAME CANVAS & OVERLAYS ================= -->
+  <main id="game-container">
+    <canvas id="game-canvas"></canvas>
+    
+    <!-- Windshield Raindroplets Effect -->
+    <div id="windshield-rain"></div>
+
+    <!-- CRT Scanlines Overlay -->
+    <div id="crt-overlay"></div>
+
+    <!-- In-Game HUD & Steering Controls -->
+    <div id="hud-overlay">
+      <div id="steering-hint">
+        <span>Steer: <span class="key-badge">A</span> <span class="key-badge">D</span> / <span class="key-badge">◀</span> <span class="key-badge">▶</span></span>
+        <span>•</span>
+        <span>Drive: <span class="key-badge">W</span> (Gas) <span class="key-badge">S</span> (Brake)</span>
+        <div class="touch-control-group">
+          <button class="touch-btn" id="touch-btn-left">◀</button>
+          <button class="touch-btn" id="touch-btn-up">▲ GAS</button>
+          <button class="touch-btn" id="touch-btn-down">▼ BRAKE</button>
+          <button class="touch-btn" id="touch-btn-right">▶</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ================= 3. WELCOME MODAL & MAP SELECTION SCREEN ================= -->
+  <div class="modal-backdrop" id="welcome-modal">
+    <div class="welcome-box">
+      <h1 class="welcome-title">✦ RETROZEN DRIVING ✦</h1>
+      
+      <!-- EXACT REQUESTED WELCOME PHRASE -->
+      <div class="welcome-quote">
+        "welcome to retroZen driving my friend! sit back, relax, turn on some beat, and drive your thoughts and stresses out!"
+      </div>
+
+      <div class="section-label">SELECT YOUR ZEN MAP TO BEGIN:</div>
+
+      <div class="map-grid">
+        <!-- 1. Tokyo Sci-Fi -->
+        <div class="map-card selected" data-map="tokyo">
+          <span class="map-badge">🚗 🚶 🛹 ALL MODES</span>
+          <span class="map-icon">🌆</span>
+          <div class="map-name">Sci-Fi / Tokyo Style</div>
+          <div class="map-desc">Elevated cyber expressway, glowing neon skyscrapers, kanji signs, synthwave aesthetic.</div>
+          <div class="map-mode-tag">Drive, Walk or Skateboard</div>
+        </div>
+
+        <!-- 2. Hillside Fields -->
+        <div class="map-card" data-map="hillside">
+          <span class="map-badge">🚗 🚶 🛹 ALL MODES</span>
+          <span class="map-icon">🌿</span>
+          <div class="map-name">Hillside Grass Fields</div>
+          <div class="map-desc">Winding country road with rolling green hills, windmills, wildflowers, and pine trees.</div>
+          <div class="map-mode-tag">Drive, Walk or Skateboard</div>
+        </div>
+
+        <!-- 3. Streets of London -->
+        <div class="map-card" data-map="london">
+          <span class="map-badge">🚗 🚶 🛹 ALL MODES</span>
+          <span class="map-icon">🇬🇧</span>
+          <div class="map-name">Streets of London</div>
+          <div class="map-desc">Victorian colorful townhouses, authentic British pubs & shops, red phone boxes, Big Ben.</div>
+          <div class="map-mode-tag">Drive, Walk or Skateboard</div>
+        </div>
+
+        <!-- 4. Snowy Peaks Area -->
+        <div class="map-card" data-map="snow">
+          <span class="map-badge">🚗 🚶 🛹 ALL MODES</span>
+          <span class="map-icon">❄️</span>
+          <div class="map-name">Snow-Capped Peaks</div>
+          <div class="map-desc">Alpine mountain pass, frosted guardrails, snow-capped jagged peaks, and falling 3D snow.</div>
+          <div class="map-mode-tag">Drive, Walk or Skateboard</div>
+        </div>
+
+        <!-- 5. New York Times Square -->
+        <div class="map-card" data-map="times_square">
+          <span class="map-badge">🚗 🚶 🛹 ALL MODES</span>
+          <span class="map-icon">🗽</span>
+          <div class="map-name">New York Times Square</div>
+          <div class="map-desc">Pedestrian plaza at 42nd & Broadway, towering pixel LED billboards, yellow cabs, red TKTS stairs.</div>
+          <div class="map-mode-tag">Drive, Walk or Skateboard</div>
+        </div>
+
+        <!-- 6. Istiklal Street, Istanbul -->
+        <div class="map-card" data-map="istiklal">
+          <span class="map-badge no-drive">🚶 WALK / 🛹 SKATE</span>
+          <span class="map-icon">🇹🇷</span>
+          <div class="map-name">Istiklal Street, Istanbul</div>
+          <div class="map-desc">Historic Red Heritage Tram, Simit & Chestnut carts, Turkish delight shops, Ottoman bay windows, lanterns.</div>
+          <div class="map-mode-tag no-drive-label">no-driving zone, only peaceful walking and skating!</div>
+        </div>
+      </div>
+
+      <button class="big-start-btn" id="start-game-btn">
+        [ PRESS START / ENTER THE ZENWAY ]
+      </button>
+
+      <div style="margin-top: 15px; font-size: 16px; color: var(--text-muted);">
+        💡 Feeling indecisive? You can also ask our integrated <span style="color:var(--yellow-retro); cursor:pointer;" id="welcome-ai-trigger">Gemini AI Mood Guide</span>!
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 4. GEMINI AI MOOD ADVISOR DRAWER ================= -->
+  <aside id="ai-drawer">
+    <div class="ai-header">
+      <div class="ai-title">
+        <span>🤖</span>
+        <span>GOOGLE GEMINI AI</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button class="ai-key-badge" id="ai-key-status-btn" title="Click to view or set Google Gemini API Key">🔑 SET KEY</button>
+        <button class="close-drawer-btn" id="close-ai-btn">✕</button>
+      </div>
+    </div>
+
+    <!-- API Key Input Panel (Collapsible) -->
+    <div class="ai-key-panel" id="ai-key-panel" style="display: none;">
+      <div class="ai-key-panel-title">🔑 CONNECT GOOGLE GEMINI API</div>
+      <div class="ai-key-panel-desc">Paste your free API key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" style="color:var(--yellow-retro); text-decoration:underline;">Google AI Studio</a> to unlock general conversation:</div>
+      <div class="ai-key-row">
+        <input type="password" id="ai-key-input" class="ai-key-input" placeholder="AIzaSy..." autocomplete="off" />
+        <button id="ai-key-save-btn" class="ai-key-save-btn">SAVE</button>
+      </div>
+      <div id="ai-key-msg" class="ai-key-msg"></div>
+    </div>
+
+    <!-- Chat Messages -->
+    <div class="ai-chat-body" id="ai-chat-body">
+      <div class="chat-bubble bot">
+        <span style="color:var(--yellow-retro); font-weight:bold;">Hello! I am Google Gemini.</span><br>
+        Ask me anything you like — science, coding, philosophy, trivia, stories, or ask for relaxing retro drive recommendations whenever you want to unwind!
+      </div>
+    </div>
+
+    <!-- Quick Prompts Chips -->
+    <div class="mood-chips-container">
+      <div class="mood-chips-label">Quick Prompts:</div>
+      <div class="mood-chips-grid">
+        <button class="mood-chip" data-prompt="Tell me a fascinating fact about space and the universe!">🌌 Space Fact</button>
+        <button class="mood-chip" data-prompt="How does a car engine work in simple terms?">⚙️ How Engines Work</button>
+        <button class="mood-chip" data-prompt="I feel stressed after a long day, recommend me a calming drive.">🚗 Calming Drive</button>
+        <button class="mood-chip" data-prompt="Recommend a rainy late night cruise with lo-fi beats.">🌧️ Rainy Lo-Fi Cruise</button>
+        <button class="mood-chip" data-prompt="I want to skate through New York Times Square under neon lights!">🛹 Times Square Skate</button>
+        <button class="mood-chip" data-prompt="Write a short poetic thought about peaceful road trips.">✨ Road Poetry</button>
+      </div>
+    </div>
+
+    <!-- User Input Field -->
+    <div class="ai-input-box">
+      <input type="text" class="ai-input" id="ai-input" placeholder="Ask Gemini anything, or ask for a drive..." autocomplete="off">
+      <button class="ai-submit-btn" id="ai-submit-btn">SEND</button>
+    </div>
+  </aside>
+
+  <!-- ================= 5. SCRIPTS ================= -->
+  <script src="lib/three.min.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/gemini.js"></script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // 1. Initialize 3D Engine & Gemini
+      window.retroGame.init();
+      window.retroGemini.init();
+
+      // 2. Unconditionally unlock Web Audio on first user interaction anywhere
+      const unlockAudio = () => {
+        if (window.retroAudio) {
+          window.retroAudio.ensureContext();
+        }
+        window.removeEventListener('pointerdown', unlockAudio);
+        window.removeEventListener('keydown', unlockAudio);
+      };
+      window.addEventListener('pointerdown', unlockAudio);
+      window.addEventListener('keydown', unlockAudio);
+
+      // Play arcade click on interactive clicks
+      document.addEventListener('click', (e) => {
+        const target = e.target.closest('button, .map-card, .time-btn, .mode-btn, select, a');
+        if (target) {
+          window.retroAudio.ensureContext();
+          window.retroAudio.playArcadeClick('select');
+        }
+      });
+
+      // 3. Map Card Selection in Modal
+      let pendingMapId = 'tokyo';
+      document.querySelectorAll('.map-card').forEach(card => {
+        card.addEventListener('click', () => {
+          document.querySelectorAll('.map-card').forEach(c => c.classList.remove('selected'));
+          card.classList.add('selected');
+          pendingMapId = card.getAttribute('data-map');
+        });
+      });
+
+      // 4. Start Game / Welcome Modal Dismiss
+      const welcomeModal = document.getElementById('welcome-modal');
+      const startBtn = document.getElementById('start-game-btn');
+      startBtn.addEventListener('click', () => {
+        window.retroAudio.ensureContext();
+        window.retroAudio.playArcadeClick('fanfare');
+        window.retroGame.setMap(pendingMapId, false);
+
+        // Start Lo-Fi beat on first play
+        if (!window.retroAudio.isPlayingMusic) {
+          window.retroAudio.startMusic(1);
+          document.getElementById('toggle-music-btn').textContent = 'PAUSE';
+        }
+        welcomeModal.classList.add('hidden');
+      });
+
+      // Open Maps Modal anytime from Top Bar
+      const openMapsBtn = document.getElementById('open-maps-modal-btn');
+      openMapsBtn.addEventListener('click', () => {
+        welcomeModal.classList.remove('hidden');
+      });
+
+      // Welcome Screen AI Trigger
+      document.getElementById('welcome-ai-trigger').addEventListener('click', () => {
+        welcomeModal.classList.add('hidden');
+        window.retroGemini.toggleDrawer(true);
+      });
+
+      // 5. Timing Buttons
+      ['sunrise', 'afternoon', 'sunset', 'night'].forEach(timeId => {
+        const btn = document.getElementById(`time-${timeId}`);
+        if (btn) {
+          btn.addEventListener('click', () => {
+            window.retroGame.setTimeOfDay(timeId);
+          });
+        }
+      });
+
+      // 6. Travel Mode Buttons (Drive / Walk / Skateboard - Active across ALL maps!)
+      document.getElementById('mode-car')?.addEventListener('click', () => {
+        window.retroGame.setMode('car');
+      });
+      document.getElementById('mode-walk')?.addEventListener('click', () => {
+        window.retroGame.setMode('walk');
+      });
+      document.getElementById('mode-skate')?.addEventListener('click', () => {
+        window.retroGame.setMode('skateboard');
+      });
+
+      // 7. Ambient Vinyl Sound Toggle & Volume Slider
+      const vinylBtn = document.getElementById('toggle-vinyl-btn');
+      const vinylSlider = document.getElementById('vinyl-volume');
+      vinylBtn.addEventListener('click', () => {
+        const active = window.retroAudio.toggleVinyl();
+        vinylBtn.classList.toggle('active', active);
+      });
+      vinylSlider.addEventListener('input', (e) => {
+        window.retroAudio.setVinylVolume(parseFloat(e.target.value));
+      });
+
+      // 8. Ambient Rain Sound Toggle & Volume Slider
+      const rainBtn = document.getElementById('toggle-rain-btn');
+      const rainSlider = document.getElementById('rain-volume');
+      const rainOverlay = document.getElementById('windshield-rain');
+
+      rainBtn.addEventListener('click', () => {
+        const active = window.retroAudio.toggleRain();
+        rainBtn.classList.toggle('active', active);
+        rainOverlay.classList.toggle('active', active);
+      });
+      rainSlider.addEventListener('input', (e) => {
+        window.retroAudio.setRainVolume(parseFloat(e.target.value));
+      });
+
+      // 9. Lo-Fi Beats Player Controls
+      const musicSelect = document.getElementById('music-track-select');
+      const musicBtn = document.getElementById('toggle-music-btn');
+      const musicSlider = document.getElementById('music-volume');
+
+      musicSelect.addEventListener('change', (e) => {
+        const trackId = parseInt(e.target.value, 10);
+        window.retroAudio.setMusicTrack(trackId);
+        musicBtn.textContent = 'PAUSE';
+      });
+
+      musicBtn.addEventListener('click', () => {
+        const isPlaying = window.retroAudio.toggleMusic();
+        musicBtn.textContent = isPlaying ? 'PAUSE' : 'PLAY';
+      });
+
+      musicSlider.addEventListener('input', (e) => {
+        window.retroAudio.setMusicVolume(parseFloat(e.target.value));
+      });
+
+      // 10. CRT Scanlines & Sound Toggle
+      const crtBtn = document.getElementById('toggle-crt-btn');
+      const crtOverlay = document.getElementById('crt-overlay');
+      crtBtn.addEventListener('click', () => {
+        const isCurrentlyHidden = crtOverlay.classList.contains('hidden');
+        if (isCurrentlyHidden) {
+          crtOverlay.classList.remove('hidden');
+          crtBtn.classList.add('active');
+          window.retroAudio.toggleCRT(true);
+        } else {
+          crtOverlay.classList.add('hidden');
+          crtBtn.classList.remove('active');
+          window.retroAudio.toggleCRT(false);
+        }
+      });
+    });
+  </script>
+</body>
+</html>
