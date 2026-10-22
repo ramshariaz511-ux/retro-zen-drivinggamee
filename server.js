@@ -12,7 +12,7 @@ const path = require('path');
 
 // Safe loader for .env file
 function loadEnvFile() {
-  const envPath = path.join(__dirname, '..', '.env');
+  const envPath = fs.existsSync(path.join(process.cwd(), '.env')) ? path.join(process.cwd(), '.env') : path.join(__dirname, '.env');
   if (fs.existsSync(envPath)) {
     try {
       const content = fs.readFileSync(envPath, 'utf8');
@@ -40,7 +40,7 @@ function loadEnvFile() {
 loadEnvFile();
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
-const PUBLIC_DIR = path.join(__dirname, '..');
+const PUBLIC_DIR = fs.existsSync(path.join(__dirname, 'index.html')) ? __dirname : (fs.existsSync(path.join(process.cwd(), 'index.html')) ? process.cwd() : __dirname);
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -107,7 +107,7 @@ function saveApiKeyToFile(key, model, version) {
   if (model) process.env.GEMINI_MODEL = model;
   if (version) process.env.GEMINI_API_VERSION = version;
 
-  const envPath = path.join(__dirname, '..', '.env');
+  const envPath = fs.existsSync(path.join(process.cwd(), '.env')) ? path.join(process.cwd(), '.env') : path.join(__dirname, '.env');
   let content = '';
   if (fs.existsSync(envPath)) {
     content = fs.readFileSync(envPath, 'utf8');
