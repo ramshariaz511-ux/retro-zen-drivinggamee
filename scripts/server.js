@@ -199,14 +199,13 @@ async function discoverAndVerifyGeminiKey(key) {
 
   // Priority order for selecting the best model
   const priority = [
+    'gemma-4-26b-a4b-it',
+    'gemma-4-31b-it',
+    'gemini-2.5-flash-lite',
+    'gemini-2.5-flash',
     'gemini-1.5-flash-latest',
     'gemini-1.5-flash',
     'gemini-2.0-flash',
-    'gemini-2.0-flash-exp',
-    'gemini-2.5-flash',
-    'gemini-1.5-flash-8b',
-    'gemini-1.5-pro-latest',
-    'gemini-1.5-pro',
     'gemini-pro'
   ];
 
@@ -278,11 +277,14 @@ async function callGemini(apiKey, contents) {
   // Build candidate model list
   const modelsToTry = [
     GEMINI_MODEL,
+    'gemma-4-26b-a4b-it',
+    'gemma-4-31b-it',
     ...(DISCOVERED_MODELS || []),
+    'gemini-2.5-flash-lite',
+    'gemini-2.5-flash',
     'gemini-1.5-flash-latest',
     'gemini-1.5-flash',
     'gemini-2.0-flash',
-    'gemini-2.5-flash',
     'gemini-pro'
   ];
   const uniqueModels = [...new Set(modelsToTry.filter(Boolean))];
@@ -309,6 +311,29 @@ async function callGemini(apiKey, contents) {
           GEMINI_MODEL = m;
           GEMINI_API_VERSION = ver;
           return { ok: true, data: lastData, model: m, version: ver };
+        }
+
+        // Retry without systemInstruction for models (like Gemma) that don't support systemInstruction
+        if (!res.ok) {
+          const fallbackContents = contents.map((c, idx) => {
+            if (idx === 0) {
+              return { ...c, parts: [{ text: `${SYSTEM_INSTRUCTION}
+
+${c.parts[0]?.text || ''}` }] };
+            }
+            return c;
+          });
+          const retryRes = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: fallbackContents, generationConfig: { temperature: 0.8, maxOutputTokens: 2048 } })
+          });
+          const retryData = await retryRes.json();
+          if (retryRes.ok && retryData.candidates?.[0]) {
+            GEMINI_MODEL = m;
+            GEMINI_API_VERSION = ver;
+            return { ok: true, data: retryData, model: m, version: ver };
+          }
         }
 
         if (lastStatus === 400 && (lastData.error?.message?.includes('API_KEY_INVALID') || lastData.error?.message?.includes('not valid'))) {
@@ -512,7 +537,7 @@ async function handleGemini(req, res) {
         }
       }
 
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = (parsed.apiKey || '').trim() || (process.env.GEMINI_API_KEY || '').trim();
 
       // 2. If no valid key is configured
       if (!apiKey || apiKey.trim() === '' || apiKey === 'your_gemini_api_key_here') {
