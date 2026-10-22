@@ -1,14 +1,5 @@
 {
-  "functions": {
-    "server.js": {
-      "includeFiles": "index.html"
-    }
-  },
   "rewrites": [
-    {
-      "source": "/api/(.*)",
-      "destination": "/server.js"
-    },
     {
       "source": "/",
       "destination": "/index.html"

@@ -2,7 +2,6 @@
   "name": "retro-zen-driving",
   "version": "1.0.0",
   "description": "Vintage, retro, pixelated first-person driving & walking game with Google Gemini AI mood guide",
-  "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
