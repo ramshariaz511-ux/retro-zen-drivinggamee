@@ -34,7 +34,7 @@ Game reference for the trip block:
 - Modes: 'car' (driving cockpit with speedometer), 'walk' (first-person stroll), 'skateboard' (high-speed cruising deck).
 
 CRITICAL RULE:
-If the user is asking a general question, answer thoroughly and naturally without a zen-trip block unless they ask for a route.`;
+If the user is asking a general question (e.g. "who is elon musk?", science, coding, history), answer their question thoroughly, intelligently, and naturally. DO NOT include a zen-trip block unless they specifically ask for a route or their query is about wanting a zen driving journey.`;
 
 function generateFallbackDrive(userPrompt) {
   const text = (userPrompt || '').toLowerCase();
@@ -102,9 +102,10 @@ module.exports = async (req, res) => {
     return res.status(400).json({ success: false, error: 'Please enter a message or question.' });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  // Support key sent from client (localStorage) OR server env
+  const apiKey = (parsed.apiKey || '').trim() || (process.env.GEMINI_API_KEY || '').trim();
 
-  if (!apiKey || apiKey.trim() === '' || apiKey === 'your_gemini_api_key_here') {
+  if (!apiKey || apiKey === 'your_gemini_api_key_here') {
     const fallbackDrive = generateFallbackDrive(userPrompt);
     if (fallbackDrive) {
       return res.status(200).json({
@@ -113,12 +114,12 @@ module.exports = async (req, res) => {
         trip: fallbackDrive.trip,
         recommendation: fallbackDrive.trip,
         isMock: true,
-        info: "Offline Drive Suggestion. To chat about any topic with live Google Gemini, add your GEMINI_API_KEY in Vercel Environment Variables."
+        info: "Offline Drive Suggestion. To chat about any topic, click [ 🔑 SET KEY ] above to enter your free Gemini key."
       });
     } else {
       return res.status(200).json({
         success: true,
-        text: `🔑 **Live Google Gemini API Key Needed**\n\nI want to answer your question! Right now, live Gemini conversation is waiting for an API key.\n\n### How to activate on Vercel:\n1. Go to your **Vercel Project Dashboard** -> **Settings** -> **Environment Variables**\n2. Add **GEMINI_API_KEY** with your free key from [Google AI Studio](https://aistudio.google.com/app/apikey)\n3. Redeploy your project!`,
+        text: `🔑 **Live Google Gemini API Key Needed**\n\nI want to answer your question! To chat freely about anything with Google AI, please enter your free API key:\n\n1. Click **[ 🔑 SET KEY ]** at the top right of this drawer\n2. Paste your free key from [Google AI Studio](https://aistudio.google.com/app/apikey) and click **SAVE**!`,
         trip: null,
         needsKey: true,
         isMock: true
@@ -126,7 +127,40 @@ module.exports = async (req, res) => {
     }
   }
 
-  // Build multi-turn contents
+  // 1. Discover available models for this key directly from Google
+  let availableModels = [];
+  let apiVersion = 'v1beta';
+
+  try {
+    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    const listData = await listRes.json();
+    if (listRes.ok && Array.isArray(listData.models)) {
+      availableModels = listData.models
+        .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+        .map(m => m.name.replace(/^models\//, ''));
+    }
+  } catch (err) {}
+
+  // Fallback candidate list if listModels was empty
+  const candidatePriority = [
+    'gemma-4-26b-a4b-it',
+    'gemma-4-31b-it',
+    'gemini-2.5-flash-lite',
+    'gemini-2.5-flash',
+    'gemini-1.5-flash-latest',
+    'gemini-1.5-flash',
+    'gemini-pro'
+  ];
+
+  // Combine discovered models with priority
+  const modelsToTry = [
+    ...candidatePriority.filter(m => availableModels.includes(m)),
+    ...availableModels,
+    ...candidatePriority
+  ];
+  const uniqueModels = [...new Set(modelsToTry.filter(Boolean))];
+
+  // Build messages
   const contents = [];
   if (Array.isArray(parsed.history)) {
     for (const msg of parsed.history) {
@@ -140,50 +174,69 @@ module.exports = async (req, res) => {
   }
   contents.push({ role: 'user', parts: [{ text: userPrompt }] });
 
-  // Call Google Gemini API
-  const modelsToTry = [
-    process.env.GEMINI_MODEL,
-    'gemini-1.5-flash-latest',
-    'gemini-1.5-flash',
-    'gemini-2.0-flash',
-    'gemini-2.5-flash',
-    'gemini-pro'
-  ].filter(Boolean);
-
-  const versionsToTry = ['v1beta', 'v1'];
   let geminiData = null;
   let successModel = null;
+  let lastErrorMessage = '';
 
-  for (const ver of versionsToTry) {
-    for (const m of modelsToTry) {
-      try {
-        const url = `https://generativelanguage.googleapis.com/${ver}/models/${m}:generateContent?key=${apiKey}`;
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents,
-            systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
-            generationConfig: { temperature: 0.8, maxOutputTokens: 2048 }
-          })
-        });
-
-        const data = await response.json();
-        if (response.ok && data.candidates?.[0]) {
-          geminiData = data;
-          successModel = m;
-          break;
-        }
-      } catch (err) {}
+  for (const model of uniqueModels) {
+    // Try with systemInstruction first
+    try {
+      const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${apiKey}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents,
+          systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
+          generationConfig: { temperature: 0.8, maxOutputTokens: 2048 }
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.candidates?.[0]) {
+        geminiData = data;
+        successModel = model;
+        break;
+      } else {
+        lastErrorMessage = data.error?.message || `Status ${res.status}`;
+      }
+    } catch (e) {
+      lastErrorMessage = e.message;
     }
-    if (geminiData) break;
+
+    // If model rejected systemInstruction (like Gemma models), try without systemInstruction
+    try {
+      const promptWithSystem = `${SYSTEM_INSTRUCTION}\n\nUser Question: ${userPrompt}`;
+      const fallbackContents = [
+        ...contents.slice(0, -1),
+        { role: 'user', parts: [{ text: promptWithSystem }] }
+      ];
+      const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${model}:generateContent?key=${apiKey}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: fallbackContents,
+          generationConfig: { temperature: 0.8, maxOutputTokens: 2048 }
+        })
+      });
+      const data = await res.json();
+      if (res.ok && data.candidates?.[0]) {
+        geminiData = data;
+        successModel = model;
+        break;
+      } else {
+        lastErrorMessage = data.error?.message || `Status ${res.status}`;
+      }
+    } catch (e) {
+      lastErrorMessage = e.message;
+    }
   }
 
   if (!geminiData) {
     const fallbackDrive = generateFallbackDrive(userPrompt);
     return res.status(200).json({
       success: true,
-      text: fallbackDrive ? fallbackDrive.text : "⚠️ Could not reach Gemini API. Please check your GEMINI_API_KEY in Vercel settings.",
+      text: fallbackDrive ? fallbackDrive.text : `⚠️ Google API note: ${lastErrorMessage || 'Could not reach model.'}`,
       trip: fallbackDrive ? fallbackDrive.trip : null,
       isMock: true
     });

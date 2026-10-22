@@ -117,12 +117,17 @@ class GeminiAICompanion {
 
   async checkStatus() {
     try {
+      const localKey = localStorage.getItem('retrozen_api_key');
       const res = await fetch('/api/status');
       const data = await res.json();
-      this.isKeyActive = !!data.geminiConfigured;
+      this.isKeyActive = !!(data.geminiConfigured || localKey);
       this.updateKeyBadge();
     } catch (e) {
-      console.warn('[RetroZen] Backend check note:', e);
+      const localKey = localStorage.getItem('retrozen_api_key');
+      if (localKey) {
+        this.isKeyActive = true;
+        this.updateKeyBadge();
+      }
     }
   }
 
@@ -178,6 +183,7 @@ class GeminiAICompanion {
 
       if (data.success) {
         this.isKeyActive = true;
+        localStorage.setItem('retrozen_api_key', apiKey);
         this.updateKeyBadge();
 
         if (this.keyMsg) {
@@ -267,7 +273,7 @@ class GeminiAICompanion {
     if (window.retroAudio) window.retroAudio.playArcadeClick('select');
 
     // If user pasted an API key directly into the chat input
-    if (/^AIza[0-9A-Za-z-_]{30,}$/.test(text)) {
+    if (/^(?:AIza|AQ\.)[0-9A-Za-z-_]{20,}$/.test(text)) {
       this.input.value = '';
       this.submitApiKey(text);
       return;
@@ -288,13 +294,15 @@ class GeminiAICompanion {
     const loadingBubble = this.appendMessage('bot', '<span style="color:var(--text-cyan);">Google Gemini is thinking... [■■■□□□]</span>');
 
     try {
-      // Send message + conversational context to backend
+      const activeKey = localStorage.getItem('retrozen_api_key') || '';
+      // Send message + conversational context + apiKey to backend
       const res = await fetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: text,
-          history: this.chatHistory.slice(0, -1) // prior conversation history
+          history: this.chatHistory.slice(0, -1),
+          apiKey: activeKey
         })
       });
 
